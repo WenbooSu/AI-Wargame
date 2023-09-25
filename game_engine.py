@@ -32,17 +32,17 @@ class CheckerBoard:
     def __init__(self):
 
         dA = Units('defender', 'AI')
-        dT1 = Units('defender', 'Techs')
-        dT2 = Units('defender', 'Techs')
-        dF1 = Units('defender', 'Firewalls')
-        dF2 = Units('defender', 'Firewalls')
-        dP = Units('defender', 'Programs')
+        dT1 = Units('defender', 'Tech')
+        dT2 = Units('defender', 'Tech')
+        dF1 = Units('defender', 'Firewall')
+        dF2 = Units('defender', 'Firewall')
+        dP = Units('defender', 'Program')
 
-        aP1 = Units('attacker', 'Programs')
-        aP2 = Units('attacker', 'Programs')
-        aF = Units('attacker', 'Firewalls')
-        aV1 = Units('attacker', 'Viruses')
-        aV2 = Units('attacker', 'Viruses')
+        aP1 = Units('attacker', 'Program')
+        aP2 = Units('attacker', 'Program')
+        aF = Units('attacker', 'Firewall')
+        aV1 = Units('attacker', 'Virus')
+        aV2 = Units('attacker', 'Virus')
         aA = Units('attacker', 'AI')
 
         self.board = [
@@ -145,7 +145,7 @@ class Engine:
         command = ''
         while True:
             print("Your Command: ")
-            if self.get_unit_node(my_position).get_unit_name() in ['Techs', 'Viruses']:
+            if self.get_unit_node(my_position).get_unit_name() in ['Tech', 'Virus']:
                 command = keyboard_command()
                 if command == 'up':  # [x][y] -> [x-1][y]
                     new_position = (my_position[0] - 1, my_position[1])
@@ -195,7 +195,7 @@ class Engine:
                             break
                         else:
                             print('Invalid Move: Out of Range')
-            if self.get_unit_node(my_position).get_unit_name() in ['AI', 'Firewalls', 'Programs']:
+            if self.get_unit_node(my_position).get_unit_name() in ['AI', 'Firewall', 'Program']:
                 command = keyboard_command()
                 if self.get_game_map().engaged(my_position):
                     print("This Unit is Engaged in Combat")
@@ -318,7 +318,46 @@ class Engine:
     
                 if is_valid_move(new_position):
                     break"""
-    
+
+    def damage_settlement_table(self):
+        damage_table = {
+            'AI': {
+                'AI': 3,
+                'Virus': 3,
+                'Tech': 3,
+                'Firewall': 1,
+                'Program': 3
+            },
+            'Virus': {
+                'AI': 9,
+                'Virus': 1,
+                'Tech': 6,
+                'Firewall': 1,
+                'Program': 6
+            },
+            'Tech': {
+                'AI': 1,
+                'Virus': 6,
+                'Tech': 1,
+                'Firewall': 1,
+                'Program': 1
+            },
+            'Firewall': {
+                'AI': 1,
+                'Virus': 1,
+                'Tech': 1,
+                'Firewall': 1,
+                'Program': 1
+            },
+            'Program': {
+                'AI': 3,
+                'Virus': 3,
+                'Tech': 3,
+                'Firewall': 1,
+                'Program': 3
+            }
+        }
+
 
 # static functions
 def convert2board_index(char, col):
