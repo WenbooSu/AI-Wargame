@@ -1,3 +1,5 @@
+import sys
+
 import keyboard
 
 
@@ -17,11 +19,14 @@ class Units:
     def get_unit_name(self):
         return self.unit_name
 
-    def damage_by(self, damage):
+    def hp_decrease_by(self, damage):
         self.hp = self.hp - damage
 
-    def repair_by(self, recovery):
+    def hp_increase_by(self, recovery):
         self.hp = self.hp + recovery
+
+    def set_hp(self, hp):
+        self.hp = hp
 
     def myself(self):
         return f"{self.faction[0]}{self.unit_name[0]}{self.hp}"
@@ -123,11 +128,18 @@ class Engine:
 
     def __init__(self):
         self.game_map = CheckerBoard()
+        self.ai_dead = False
 
     def get_game_map(self):
         return self.game_map
 
-    # Return the Index of a Unit on Game Board
+    def set_ai_dead(self, boolean_value):
+        self.ai_dead = boolean_value
+
+    def get_ai_dead(self):
+        return self.ai_dead
+
+    # Return the Tuple of a Unit Index on Game Board -> IMPORTANT for entire game
     @staticmethod
     def select_unit():
         user_input = input("Choose Your Unit: ")
@@ -146,7 +158,7 @@ class Engine:
         while True:
             print("Your Command: ")
             if self.get_unit_node(my_position).get_unit_name() in ['Tech', 'Virus']:
-                command = keyboard_command()
+                command = keyboard_command_move()
                 if command == 'up':  # [x][y] -> [x-1][y]
                     new_position = (my_position[0] - 1, my_position[1])
                     if self.get_game_map().position_occupied(new_position):
@@ -196,7 +208,7 @@ class Engine:
                         else:
                             print('Invalid Move: Out of Range')
             if self.get_unit_node(my_position).get_unit_name() in ['AI', 'Firewall', 'Program']:
-                command = keyboard_command()
+                command = keyboard_command_move()
                 if self.get_game_map().engaged(my_position):
                     print("This Unit is Engaged in Combat")
                     break
@@ -319,7 +331,7 @@ class Engine:
                 if is_valid_move(new_position):
                     break"""
 
-    def damage_settlement_table(self):
+    def attack(self, s_tup, t_tup):
         damage_table = {
             'AI': {
                 'AI': 3,
@@ -357,6 +369,89 @@ class Engine:
                 'Program': 3
             }
         }
+        if is_adjacent(s_tup, t_tup):
+            s = self.get_unit_node(s_tup)
+            t = self.get_unit_node(t_tup)
+            if isinstance(s, Units) and isinstance(t, Units):
+                if s.get_faction() != t.get_faction():
+                    # damage S to T
+                    damage_value_to_t = damage_table[s.get_unit_name()][t.get_unit_name()]
+                    self.get_unit_node(t_tup).hp_decrease_by(damage_value_to_t)
+                    # damage T to S
+                    damage_value_to_s = damage_table[t.get_unit_name()][s.get_unit_name()]
+                    self.get_unit_node(s_tup).hp_decrease_by(damage_value_to_s)
+                    if self.get_unit_node(t_tup).get_hp() <= 0 and self.get_unit_node(t_tup).get_unit_name() == 'AI':
+                        print(f"{t.get_unit_name()} Has Been Destroyed")
+                        self.get_game_map().get_board()[t_tup[0]][t_tup[1]] = None
+                        print(f"{t.get_faction()} Lost the Game!")
+                        self.set_ai_dead(True)
+                        # sys.exit()
+                    elif self.get_unit_node(s_tup).get_hp() <= 0 and self.get_unit_node(s_tup).get_unit_name() == 'AI':
+                        print(f"{s.get_unit_name()} Has Been Destroyed")
+                        self.get_game_map().get_board()[s_tup[0]][s_tup[1]] = None
+                        print(f"{s.get_faction()} Lost the Game!")
+                        self.set_ai_dead(True)
+                        # sys.exit()
+                    else:
+                        if self.get_unit_node(t_tup).get_hp() <= 0:
+                            print(f"{t.myself()} Has Been Destroyed!")
+                            self.get_game_map().get_board()[t_tup[0]][t_tup[1]] = None
+                        if self.get_unit_node(s_tup).get_hp() <= 0:
+                            print(f"{s.myself()} Has Been Destroyed!")
+                            self.get_game_map().get_board()[s_tup[0]][s_tup[1]] = None
+        else:
+            print("You Don't Have Missile to Reach This Far :)")
+
+    def repair(self, s_tup, t_tup):
+        repair_table = {
+            'AI': {
+                'Virus': 1,
+                'Tech': 1
+            },
+            'Tech': {
+                'AI': 3,
+                'Firewall': 3,
+                'Program': 3
+            }
+        }
+        if is_adjacent(s_tup, t_tup):
+            s = self.get_unit_node(s_tup)
+            t = self.get_unit_node(t_tup)
+            if isinstance(s, Units) and isinstance(t, Units):
+                if s.get_faction() == t.get_faction():
+                    try:
+                        repair_value_s_2_t = repair_table[s.get_unit_name()][t.get_unit_name()]
+                    except KeyError:
+                        print(f"Invalid Action: {s.get_unit_name()} Cannot Repair {t.get_unit_name()}")
+                    else:
+                        if (self.get_unit_node(t_tup).get_hp() + repair_value_s_2_t) >= 9:
+                            self.get_unit_node(t_tup).set_hp(9)
+                        else:
+                            self.get_unit_node(t_tup).hp_increase_by(repair_value_s_2_t)
+            else:
+                print("You traitor or what?")
+
+    def self_destruct(self, tup):
+        x, y = tup
+        surroundings = [(x - 1, y - 1), (x - 1, y), (x - 1, y + 1), (x, y - 1), (x, y + 1), (x + 1, y - 1), (x, y - 1),
+                        (x + 1, y + 1)]
+        self_destruct_unit = self.get_unit_node(tup)
+        print(f"{self_destruct_unit.get_unit_name()} Destructed Itself")
+        self.get_game_map().get_board()[tup[0]][tup[1]] = None
+        for row, col in surroundings:
+            if (0 <= row < 5) and (0 <= col < 5):
+                node = self.get_unit_node((row, col))
+                if isinstance(node, Units):
+                    self.get_game_map().get_board()[row][col].hp_decrease_by(2)
+                    if self.get_game_map().get_board()[row][col].get_hp() <= 0:
+                        if self.get_game_map().get_board()[row][col].get_unit_name() == 'AI':
+                            print(f"{self.get_game_map().get_board()[row][col].get_unit_name()} Has Been Destroyed")
+                            print(f"{self.get_game_map().get_board()[row][col].get_faction()} Lost the Game")
+                            self.get_game_map().get_board()[row][col] = None
+                            self.set_ai_dead(True)
+                        else:
+                            print(f"{self.get_game_map().get_board()[row][col].get_unit_name()} Has Been Destroyed")
+                            self.get_game_map().get_board()[row][col] = None
 
 
 # static functions
@@ -367,7 +462,7 @@ def convert2board_index(char, col):
     return row, col
 
 
-def keyboard_command():
+def keyboard_command_move():
     while True:
         keyboard_event = keyboard.read_event(suppress=True)
         if keyboard_event.event_type == keyboard.KEY_DOWN:
@@ -377,8 +472,50 @@ def keyboard_command():
                 print("Invalid Keyboard Input")
 
 
+def keyboard_command_attack():
+    while True:
+        keyboard_event = keyboard.read_event(suppress=True)
+        if keyboard_event.event_type == keyboard.KEY_DOWN:
+            if keyboard_event.name == 'a':
+                return keyboard_event.name
+            else:
+                print("Invalid Keyboard Input")
+
+
+class MainGameLoop:
+    def __init__(self):
+        self.var = Engine()
+
+
+def keyboard_command_repair():
+    while True:
+        keyboard_event = keyboard.read_event(suppress=True)
+        if keyboard_event.event_type == keyboard.KEY_DOWN:
+            if keyboard_event.name == 'r':
+                return keyboard_event.name
+            else:
+                print("Invalid Keyboard Input")
+
+
+def keyboard_command_self_destruct():
+    while True:
+        keyboard_event = keyboard.read_event(suppress=True)
+        if keyboard_event.event_type == keyboard.KEY_DOWN:
+            if keyboard_event.name == 'space':
+                return keyboard_event.name
+            else:
+                print("Invalid Keyboard Input")
+
+
 def within_range(tup):
     if 0 <= tup[0] < 5 and 0 <= tup[1] < 5:
+        return True
+    else:
+        return False
+
+
+def is_adjacent(tup1, tup2):
+    if tup1 in [(tup2[0], tup2[1] + 1), (tup2[0], tup2[1] - 1), (tup2[0] + 1, tup2[1]), (tup2[0] - 1, tup2[1])]:
         return True
     else:
         return False
