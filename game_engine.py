@@ -273,7 +273,7 @@ class Engine:
                                         print('Invalid Move: Out of Range')
 
     # Better Structured move() -> to be decent a guy
-    """def move(self, my_position):
+    def move1(self, my_position):
         def is_valid_move(new_position):
             if not self.get_game_map().position_occupied(new_position):
                 if within_range(new_position):
@@ -284,16 +284,16 @@ class Engine:
             else:
                 print("Invalid Move: a Unit on this Position")
             return False
-    
+
         command = ''
         unit_name = self.get_unit_node(my_position).get_unit_name()
         faction = self.get_unit_node(my_position).get_faction()
-    
+        new_position = None
         while True:
             print("Your Command: ")
-            command = keyboard_command()
-    
-            if unit_name in ['Techs', 'Viruses']:
+            command = keyboard_command_move()
+
+            if unit_name in ['Tech', 'Virus']:
                 if command == 'up':  # [x][y] -> [x-1][y]
                     new_position = (my_position[0] - 1, my_position[1])
                 elif command == 'down':  # [x][y] -> [x+1][y]
@@ -305,20 +305,21 @@ class Engine:
                 else:
                     print("Invalid Move: Unsupported command for this unit type")
                     continue
-    
+
                 if is_valid_move(new_position):
+                    self.get_game_map().show_board()
                     break
-    
-            elif unit_name in ['AI', 'Firewalls', 'Programs']:
+
+            elif unit_name in ['AI', 'Firewall', 'Program']:
                 if faction == 'defender':
                     valid_commands = ['down', 'right']
                 else:
                     valid_commands = ['up', 'left']
-    
+
                 if command not in valid_commands:
                     print(f'Illegal Move for {faction.capitalize()}')
                     continue
-    
+
                 if command == 'up':
                     new_position = (my_position[0] - 1, my_position[1])
                 elif command == 'down':
@@ -327,9 +328,32 @@ class Engine:
                     new_position = (my_position[0], my_position[1] - 1)
                 elif command == 'right':
                     new_position = (my_position[0], my_position[1] + 1)
-    
+
                 if is_valid_move(new_position):
-                    break"""
+                    self.get_game_map().show_board()
+                    break
+
+    def movable(self, tup):
+        if self.get_unit_node(tup).get_unit_name() in ['Tech', 'Virus']:
+            directions = [(tup[0] + 1, tup[1]), (tup[0] - 1, tup[1]), (tup[0], tup[1] + 1), (tup[0], tup[1] - 1)]
+            for direction in directions:
+                if within_range(direction):
+                    if self.get_unit_node(direction) is None:
+                        return True
+        else:
+            if self.get_unit_node(tup).get_faction() == 'attacker':
+                directions = [(tup[0] - 1, tup[1]), (tup[0], tup[1] - 1)]
+                for direction in directions:
+                    if within_range(direction):
+                        if self.get_unit_node(direction) is None:
+                            return True
+            if self.get_unit_node(tup).get_faction() == 'defender':
+                directions = [(tup[0] + 1, tup[1]), (tup[0], tup[1] + 1)]
+                for direction in directions:
+                    if within_range(direction):
+                        if self.get_unit_node(direction) is None:
+                            return True
+        return False
 
     def attack(self, s_tup, t_tup):
         damage_table = {
@@ -399,8 +423,10 @@ class Engine:
                         if self.get_unit_node(s_tup).get_hp() <= 0:
                             print(f"{s.myself()} Has Been Destroyed!")
                             self.get_game_map().get_board()[s_tup[0]][s_tup[1]] = None
+                return True
         else:
             print("You Don't Have Missile to Reach This Far :)")
+        return False
 
     def repair(self, s_tup, t_tup):
         repair_table = {
@@ -428,8 +454,10 @@ class Engine:
                             self.get_unit_node(t_tup).set_hp(9)
                         else:
                             self.get_unit_node(t_tup).hp_increase_by(repair_value_s_2_t)
+                    return True
             else:
                 print("You traitor or what?")
+        return False
 
     def self_destruct(self, tup):
         x, y = tup
@@ -521,10 +549,6 @@ def is_adjacent(tup1, tup2):
         return False
 
 
-var = Engine()
-var.get_game_map().show_board()
-print()
-position = var.select_unit()
-var.move(position)
-print()
-var.get_game_map().show_board()
+def customized_print(message, file):
+    print(message)
+    file.write(message + '\n')
