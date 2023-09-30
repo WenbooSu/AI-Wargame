@@ -100,6 +100,7 @@ class MainGameLoop:
             
             #Display game board after each action
             self.engine.get_game_map().show_board()
+            print("")
     
             #Switch turn to the other player
             self.switch_player()
