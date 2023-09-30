@@ -136,8 +136,11 @@ class Engine:
     def set_ai_dead(self, boolean_value):
         self.ai_dead = boolean_value
 
-    def get_ai_dead(self):
-        return self.ai_dead
+    def get_ai_dead(self, player_faction = None):
+        if player_faction is None:
+            return self.ai_dead
+        else:
+            return self.ai_dead
 
     # Return the Tuple of a Unit Index on Game Board -> IMPORTANT for entire game
     @staticmethod
