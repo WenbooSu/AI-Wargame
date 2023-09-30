@@ -1,19 +1,38 @@
-%run engine.ipynb
+import engine as eg
 
 class MainGameLoop:
     def __init__(self):
-        self.engine = Engine()
+        self.engine = eg.Engine()
         self.max_moves = 100
         self.current_move = 0
+        self.current_player = 'attacker' #Attacker goes first
+        self.actions = []  #Store actions
+        
+    def switch_player(self):
+        self.current_player = 'defender' if self.current_player == 'attacker' else 'attacker'
+        
+    def log_action(self, action):
+        self.actions.append(action)
 
+    def write_actions_to_file(self, filename):
+        with open(filename, 'w') as file:
+            for action in self.actions:
+                file.write(action + '\n')
+                
     def play_game(self):
         while True:
             #Check game-ending conditions: AI dead or max moves reached
-            if self.engine.get_ai_dead():
+            if self.engine.get_ai_dead('defender') and not self.engine.get_ai_dead('attacker'):
                 print("Attacker wins!")
+                self.log_action("Attacker wins!")
                 break
-            if self.current_move >= self.max_moves:
+            elif self.engine.get_ai_dead('attacker') and not self.engine.get_ai_dead('defender'):
+                print("Defender wins!")
+                self.log_action("Defender wins!")
+                break
+            elif self.current_move >= self.max_moves:
                 print("Maximum moves reached. A draw game.")
+                self.log_action("Maximum moves reached. A draw game.")
                 break
 
             #Display game board
@@ -27,37 +46,61 @@ class MainGameLoop:
 
             #Choose player action
             while True:
+                #Choose player unit
+                print("Choose your unit:")
+                s_position = self.engine.select_unit()
+                
+                if self.engine.get_unit_node((s_position[0], s_position[1])).get_faction() != current_player:
+                    print("You can't' choose an enemy's unit")
+                    continue
+            
                 print("Please choose an action:")
                 print("1.Move")
                 print("2.Attack")
                 print("3.Repair")
                 print("4.Self-Destruct")
-                action_choice = input("Enter the number of your choice from integer 1-4: ")
-                if action_choice in ['1', '2', '3', '4']:
+                print("5.Select another unit")
+                
+                action_choice = input("Enter the number of your choice from integer 1-5: ")
+                if action_choice in ['1', '2', '3', '4', '5']:
                     break
                 else:
-                    print("Invalid choice. Please select a valid action from integer 1-4.")
+                    print("Invalid choice. Please select a valid action from integer 1-5.")
 
             if action_choice == '1': #Move
-                position = self.engine.select_unit()
-                self.engine.move(position)
+                if self.engine.movable(s_position):
+                    self.engine.move1(s_position)
+                    self.log_action(f"{current_player} - Action {self.current_move + 1}: Move")
+                    break
+                else:
+                    print("The selected unit can't move. Please select another one.")
+                    continue
+                
             elif action_choice == '2': #Attack
-                print("Choose your unit to attack with:")
-                s_position = self.engine.select_unit()
                 print("Choose the target unit to be attacked:")
                 t_position = self.engine.select_unit()
                 self.engine.attack(s_position, t_position)
+                self.log_action(f"{current_player} - Action {self.current_move + 1}: Attack")
+                break
+            
             elif action_choice == '3': #Repair
-                print("Choose your unit to repair with:")
-                s_position = self.engine.select_unit()
                 print("Choose the target unit to be repaired:")
                 t_position = self.engine.select_unit()
                 self.engine.repair(s_position, t_position)
+                self.log_action(f"{current_player} - Action {self.current_move + 1}: Repair")
+                break
+            
             elif action_choice == '4': #Self-Destruct
-                print("Choose the unit to self-destruct:")
-                position = self.engine.select_unit()
-                self.engine.self_destruct(position)
+                self.engine.self_destruct(s_position)
+                self.log_action(f"{current_player} - Action {self.current_move + 1}: Self-destruct")
+                break
 
+            #Display game board after each action
+            self.engine.get_game_map().show_board()
+    
+            #Switch turn to the other player
+            self.switch_player()
+            
             #Increment move counter
             self.current_move += 1
 
@@ -65,3 +108,6 @@ class MainGameLoop:
 if __name__ == "__main__":
     game = MainGameLoop()
     game.play_game()
+    game.write_actions_to_file('game_actions.txt')
+    
+    
