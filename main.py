@@ -41,7 +41,7 @@ class MainGameLoop:
             print(f"Move {self.current_move + 1}") #Count the move start from 1 
 
             #Determine current player
-            current_player = 'defender' if self.current_move % 2 == 0 else 'attacker' #Attacker goes first
+            current_player = 'attacker' if self.current_move % 2 == 0 else 'defender' 
             print(f"Current Player: {current_player}")
 
             #Choose player action
