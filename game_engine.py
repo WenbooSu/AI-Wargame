@@ -136,18 +136,15 @@ class Engine:
     def set_ai_dead(self, boolean_value):
         self.ai_dead = boolean_value
 
-    def get_ai_dead(self, player_faction = None):
-        if player_faction is None:
-            return self.ai_dead
-        else:
-            return self.ai_dead
+    def get_ai_dead(self):
+        return self.ai_dead
 
     # Return the Tuple of a Unit Index on Game Board -> IMPORTANT for entire game
     @staticmethod
     def select_unit():
         user_input = input("Choose Your Unit: ")
         while len(user_input) != 2 or user_input[0].upper() not in ['A', 'B', 'C', 'D', 'E'] \
-                or not user_input[1].isnumeric() or int(user_input[1]) < 1 or int(user_input[1]) > 5:
+                or not user_input[1].isnumeric() or int(user_input[1]) < 0 or int(user_input[1]) > 5:
             print("Invalid Input. Please Enter a Proper Position: ")
             user_input = input("Choose Your Unit: ")
         return convert2board_index(user_input[0].upper(), int(user_input[1]))
@@ -426,7 +423,9 @@ class Engine:
                         if self.get_unit_node(s_tup).get_hp() <= 0:
                             print(f"{s.myself()} Has Been Destroyed!")
                             self.get_game_map().get_board()[s_tup[0]][s_tup[1]] = None
-                return True
+                    return True
+                else:
+                    print("No Team Kill")
         else:
             print("You Don't Have Missile to Reach This Far :)")
         return False
@@ -467,7 +466,9 @@ class Engine:
         surroundings = [(x - 1, y - 1), (x - 1, y), (x - 1, y + 1), (x, y - 1), (x, y + 1), (x + 1, y - 1), (x, y - 1),
                         (x + 1, y + 1)]
         self_destruct_unit = self.get_unit_node(tup)
-        print(f"{self_destruct_unit.get_unit_name()} Destructed Itself")
+        print(f"{self_destruct_unit.get_faction()} {self_destruct_unit.get_unit_name()} Destructed Itself")
+        if self_destruct_unit.get_unit_name() == 'AI':
+            self.set_ai_dead(True)
         self.get_game_map().get_board()[tup[0]][tup[1]] = None
         for row, col in surroundings:
             if (0 <= row < 5) and (0 <= col < 5):
