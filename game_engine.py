@@ -3,6 +3,14 @@ import sys
 import keyboard
 
 
+def trace_records(message):
+    try:
+        with open('gameTrace-false-none-100.txt', 'a') as file:  # 'a' mode appends to the file
+            file.write(message + '\n')
+    except Exception as e:
+        print(f"Error to Create/Open File")
+
+
 class Units:
 
     def __init__(self, faction, unit_name):
@@ -79,15 +87,22 @@ class CheckerBoard:
 
     def show_board(self):
         row_labels = "ABCDE"
+        message = ''
         print("    0   1   2   3   4")
+        message += "    0   1   2   3   4\n"
         for i, inner_list in enumerate(self.board):
             print(f"{row_labels[i]}: ", end='')
+            message += f"{row_labels[i]}: "
             for obj in inner_list:
                 if isinstance(obj, Units):
                     print(obj.myself(), end=' ')
+                    message += f"{obj.myself()} "
                 else:
                     print(' * ', end=' ')
+                    message += ' *  '
             print()
+            message += '\n'
+        trace_records(message)
 
     def get_position(self, name):
         for i, row in enumerate(self.board):
@@ -154,7 +169,7 @@ class Engine:
 
     # Parameters are tuple only
     def move(self, my_position):
-        command = ''
+        new_position = (0, 0)
         while True:
             print("Your Command: ")
             if self.get_unit_node(my_position).get_unit_name() in ['Tech', 'Virus']:
@@ -167,7 +182,7 @@ class Engine:
                     else:
                         if within_range(new_position):
                             self.get_game_map().switch_position(my_position, new_position)
-                            self.get_game_map().show_board()
+                            # self.get_game_map().show_board()
                             break
                         else:
                             print('Invalid Move: Out of Range')
@@ -179,7 +194,7 @@ class Engine:
                     else:
                         if within_range(new_position):
                             self.get_game_map().switch_position(my_position, new_position)
-                            self.get_game_map().show_board()
+                            # self.get_game_map().show_board()
                             break
                         else:
                             print('Invalid Move: Out of Range')
@@ -191,7 +206,7 @@ class Engine:
                     else:
                         if within_range(new_position):
                             self.get_game_map().switch_position(my_position, new_position)
-                            self.get_game_map().show_board()
+                            # self.get_game_map().show_board()
                             break
                         else:
                             print('Invalid Move: Out of Range')
@@ -203,7 +218,7 @@ class Engine:
                     else:
                         if within_range(new_position):
                             self.get_game_map().switch_position(my_position, new_position)
-                            self.get_game_map().show_board()
+                            # self.get_game_map().show_board()
                             break
                         else:
                             print('Invalid Move: Out of Range')
@@ -226,7 +241,7 @@ class Engine:
                                 else:
                                     if within_range(new_position):
                                         self.get_game_map().switch_position(my_position, new_position)
-                                        self.get_game_map().show_board()
+                                        # self.get_game_map().show_board()
                                         break
                                     else:
                                         print('Invalid Move: Out of Range')
@@ -238,7 +253,7 @@ class Engine:
                                 else:
                                     if within_range(new_position):
                                         self.get_game_map().switch_position(my_position, new_position)
-                                        self.get_game_map().show_board()
+                                        # self.get_game_map().show_board()
                                         break
                                     else:
                                         print('Invalid Move: Out of Range')
@@ -255,7 +270,7 @@ class Engine:
                                 else:
                                     if within_range(new_position):
                                         self.get_game_map().switch_position(my_position, new_position)
-                                        self.get_game_map().show_board()
+                                        # self.get_game_map().show_board()
                                         break
                                     else:
                                         print('Invalid Move: Out of Range')
@@ -267,71 +282,14 @@ class Engine:
                                 else:
                                     if within_range(new_position):
                                         self.get_game_map().switch_position(my_position, new_position)
-                                        self.get_game_map().show_board()
+                                        # self.get_game_map().show_board()
                                         break
                                     else:
                                         print('Invalid Move: Out of Range')
+        trace_records(f'Moved From {my_position} To {new_position}\n\n')
+        self.get_game_map().show_board()
 
     # Better Structured move() -> to be decent a guy
-    def move1(self, my_position):
-        def is_valid_move(new_position):
-            if not self.get_game_map().position_occupied(new_position):
-                if within_range(new_position):
-                    self.get_game_map().switch_position(my_position, new_position)
-                    return True
-                else:
-                    print('Invalid Move: Out of Range')
-            else:
-                print("Invalid Move: a Unit on this Position")
-            return False
-
-        command = ''
-        unit_name = self.get_unit_node(my_position).get_unit_name()
-        faction = self.get_unit_node(my_position).get_faction()
-        new_position = None
-        while True:
-            print("Your Command: ")
-            command = keyboard_command_move()
-
-            if unit_name in ['Tech', 'Virus']:
-                if command == 'up':  # [x][y] -> [x-1][y]
-                    new_position = (my_position[0] - 1, my_position[1])
-                elif command == 'down':  # [x][y] -> [x+1][y]
-                    new_position = (my_position[0] + 1, my_position[1])
-                elif command == 'left':  # [x][y] -> [x][y-1]
-                    new_position = (my_position[0], my_position[1] - 1)
-                elif command == 'right':  # [x][y] -> [x][y+1]
-                    new_position = (my_position[0], my_position[1] + 1)
-                else:
-                    print("Invalid Move: Unsupported command for this unit type")
-                    continue
-
-                if is_valid_move(new_position):
-                    self.get_game_map().show_board()
-                    break
-
-            elif unit_name in ['AI', 'Firewall', 'Program']:
-                if faction == 'defender':
-                    valid_commands = ['down', 'right']
-                else:
-                    valid_commands = ['up', 'left']
-
-                if command not in valid_commands:
-                    print(f'Illegal Move for {faction.capitalize()}')
-                    continue
-
-                if command == 'up':
-                    new_position = (my_position[0] - 1, my_position[1])
-                elif command == 'down':
-                    new_position = (my_position[0] + 1, my_position[1])
-                elif command == 'left':
-                    new_position = (my_position[0], my_position[1] - 1)
-                elif command == 'right':
-                    new_position = (my_position[0], my_position[1] + 1)
-
-                if is_valid_move(new_position):
-                    self.get_game_map().show_board()
-                    break
 
     def movable(self, tup):
         if self.get_unit_node(tup).get_unit_name() in ['Tech', 'Virus']:
@@ -341,13 +299,13 @@ class Engine:
                     if self.get_unit_node(direction) is None:
                         return True
         else:
-            if self.get_unit_node(tup).get_faction() == 'attacker':
+            if self.get_unit_node(tup).get_faction() == 'attacker' and not self.get_game_map().engaged(tup):
                 directions = [(tup[0] - 1, tup[1]), (tup[0], tup[1] - 1)]
                 for direction in directions:
                     if within_range(direction):
                         if self.get_unit_node(direction) is None:
                             return True
-            if self.get_unit_node(tup).get_faction() == 'defender':
+            if self.get_unit_node(tup).get_faction() == 'defender' and not self.get_game_map().engaged(tup):
                 directions = [(tup[0] + 1, tup[1]), (tup[0], tup[1] + 1)]
                 for direction in directions:
                     if within_range(direction):
@@ -403,6 +361,8 @@ class Engine:
                     self.get_unit_node(t_tup).hp_decrease_by(damage_value_to_t)
                     # damage T to S
                     damage_value_to_s = damage_table[t.get_unit_name()][s.get_unit_name()]
+                    trace_records(f'{s.myself()} Caused {damage_value_to_t} Damages to {t.myself()}')
+                    trace_records(f'{t.myself()} Caused {damage_value_to_s} Damages to {s.myself()}\n')
                     self.get_unit_node(s_tup).hp_decrease_by(damage_value_to_s)
                     if self.get_unit_node(t_tup).get_hp() <= 0 and self.get_unit_node(t_tup).get_unit_name() == 'AI':
                         print(f"{t.get_unit_name()} Has Been Destroyed")
@@ -449,6 +409,7 @@ class Engine:
                 if s.get_faction() == t.get_faction():
                     try:
                         repair_value_s_2_t = repair_table[s.get_unit_name()][t.get_unit_name()]
+                        trace_records(f'{s.myself()} Repaired {repair_value_s_2_t} HP to {t.myself()}')
                     except KeyError:
                         print(f"Invalid Action: {s.get_unit_name()} Cannot Repair {t.get_unit_name()}")
                     else:
@@ -469,12 +430,14 @@ class Engine:
         print(f"{self_destruct_unit.get_faction()} {self_destruct_unit.get_unit_name()} Destructed Itself")
         if self_destruct_unit.get_unit_name() == 'AI':
             self.set_ai_dead(True)
+        trace_records(f'{self.get_unit_node(tup).myself()} Destructed Itself')
         self.get_game_map().get_board()[tup[0]][tup[1]] = None
         for row, col in surroundings:
             if (0 <= row < 5) and (0 <= col < 5):
                 node = self.get_unit_node((row, col))
                 if isinstance(node, Units):
                     self.get_game_map().get_board()[row][col].hp_decrease_by(2)
+                    trace_records(f'{self.get_unit_node((row, col)).myself()} Lost 2 HP\n')
                     if self.get_game_map().get_board()[row][col].get_hp() <= 0:
                         if self.get_game_map().get_board()[row][col].get_unit_name() == 'AI':
                             print(f"{self.get_game_map().get_board()[row][col].get_unit_name()} Has Been Destroyed")
