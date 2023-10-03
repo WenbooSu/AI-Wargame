@@ -2,6 +2,14 @@ import sys
 import game_engine as ge
 
 
+def trace_records(message):
+    try:
+        with open('gameTrace-false-none-100.txt', 'a') as file:  # 'a' mode appends to the file
+            file.write(message + '\n')
+    except Exception as e:
+        print(f"Error to Create/Open File")
+
+
 class MainGameLoop:
     def __init__(self):
         self.engine = ge.Engine()
@@ -26,6 +34,7 @@ class MainGameLoop:
 
     def start_game(self, mode):
         if mode == 1:
+            trace_records('Game Mode: Human vs. Human\n\n Max Turns: 100 \n\n')
             self.play_game_human_human()
         if mode == 2:
             self.human_ai()
@@ -35,10 +44,12 @@ class MainGameLoop:
             # Check game-ending conditions: AI dead or max moves reached
             if self.engine.get_ai_dead():
                 if self.current_round % 2 == 0:
-                    print(f'Defender Wins in {self.current_round} Moves')
+                    trace_records(f'Defender Wins in {self.current_round-1} Moves\n')
+                    print(f'Defender Wins in {self.current_round-1} Moves')
                     break
                 else:
-                    print(f'Attacker Wins in {self.current_round} Moves')
+                    trace_records(f'Attacker Wins in {self.current_round-1} Moves\n')
+                    print(f'Attacker Wins in {self.current_round-1} Moves')
                     break
             if self.current_round >= self.max_round:
                 print("Maximum moves reached. A draw game.")
@@ -52,10 +63,12 @@ class MainGameLoop:
             # Determine current player
             current_player = 'defender' if self.current_round % 2 == 0 else 'attacker'  # Attacker goes first
             print(f"\nCurrent Player: {current_player}")
+            trace_records(f"\nCurrent Player: {current_player}")
 
             # Choose player action
             while True:
                 print(f'ROUND: {self.current_round}')
+                trace_records(f'ROUND: {self.current_round}')
 
                 while True:
                     s_position = self.engine.select_unit()
@@ -84,6 +97,7 @@ class MainGameLoop:
 
                 if action_choice == '1':  # Move
                     if self.engine.movable(s_position):
+                        trace_records(f'Unit: {self.engine.get_unit_node(s_position).myself()} ')
                         self.engine.move(s_position)
                         break
                     else:
