@@ -50,6 +50,7 @@ class Game:
 
     def __init__(self):
         self.player = Player.attacker
+        self.turn_played = 0
         dA = Units('defender', 'AI', 1)
         dT1 = Units('defender', 'Tech', 2)
         dT2 = Units('defender', 'Tech', 3)
@@ -108,13 +109,13 @@ class Game:
         return None
 
     def get_unit(self, tup):
-        unit = self.board[tup(0)][tup[1]]
+        unit = self.board[tup[0]][tup[1]]
         if isinstance(unit, Units):
             return unit
         else:
             return None
     
-    def select_unit():
+    def select_unit(self):
         user_input = input("Choose Your Unit: ")
         while len(user_input) != 2 or user_input[0].upper() not in ['A', 'B', 'C', 'D', 'E'] \
                 or not user_input[1].isnumeric() or int(user_input[1]) < 0 or int(user_input[1]) > 5:
@@ -126,6 +127,13 @@ class Game:
             row = tup_dict[char]
             return (row, col)
         return convert2board_index(user_input[0].upper(), int(user_input[1]))
+
+    def isfriendly(self, t : tuple):
+        unit1 = self.get_unit(t)
+        if unit1.get_faction() == self.player.name:
+            return True
+        else:
+            return False
 
     # this function can only be used in move()
     def position_occupied(self, tup):
@@ -157,6 +165,7 @@ class Game:
     def get_valid_adjacents(self, tup):
         valid_adjacents = []
         directions = [(tup[0], tup[1] + 1), (tup[0], tup[1] - 1), (tup[0] + 1, tup[1]), (tup[0] - 1, tup[1])]
+        print(directions)
         for x, y in directions:
             if 0 <= x < 5 and 0 <= y < 5:
                 valid_adjacents.append((x,y))
@@ -180,8 +189,10 @@ class Game:
         unit = self.get_unit(tup)
         adjacents = self.get_valid_adjacents(tup)
         for adjacent in adjacents:
-            if self.get_unit(adjacent).get_faction() != unit.get_faction():
-                valid_attack_list.append(adjacent)
+            adj_unit = self.get_unit(adjacent)
+            if isinstance(adj_unit, Units):
+                if unit.get_faction() != adj_unit.get_faction():
+                    valid_attack_list.append(adjacent)
         return valid_attack_list
     
     def valid_repair(self, tup):
@@ -192,7 +203,8 @@ class Game:
         else:
             adjacents = self.get_valid_adjacents(tup)
             for adjacent in adjacents:
-                if self.get_unit(adjacent).get_faction() == unit.get_faction() and self.get_unit(adjacent).get_hp() < 9:
+                adj_unit = self.get_unit(adjacent)
+                if isinstance(adj_unit, Units) and adj_unit.get_faction() == unit.get_faction() and adj_unit.get_hp() < 9:
                     valid_repair_list.append(adjacent)
         return valid_repair_list
     
@@ -267,10 +279,10 @@ class Game:
     
     def destruct(self, tup):
         x, y = tup
-        surroundings = [(x - 1, y - 1), (x - 1, y), (x - 1, y + 1), (x, y - 1), (x, y + 1), (x + 1, y - 1), (x, y - 1),
+        surroundings = [(x - 1, y - 1), (x - 1, y), (x - 1, y + 1), (x, y - 1), (x, y + 1), (x + 1, y - 1), (x + 1, y),
                         (x + 1, y + 1)]
         unit = self.get_unit(tup)
-        unit = None
+        unit.set_hp(0)
         for row, col in surroundings:
             if (0 <= row < 5) and (0 <= col < 5):
                 node = self.get_unit((row, col))
@@ -281,23 +293,36 @@ class Game:
             for row in self.board:
                 for unit in row:
                     if isinstance(unit, Units) and unit.get_hp() <= 0:
-                        unit = None
+                        x, y =self.get_position(unit)
+                        self.board[x][y] = None
     
     def check_winner(self):
         alive = []
         for row in self.board:
             for unit in row:
-                if isinstance(unit, Units) and unit.get_unit_name == 'AI':
+                if isinstance(unit, Units) and unit.get_unit_name() == 'AI':
                     alive.append(unit)
         if alive == None:
+            print('Game Tied!')
             return 'Tie'
-        if len(alive) == 1 and isinstance(alive[0], Units) and alive[0].get_faction == 'defender':
+        if len(alive) == 1 and isinstance(alive[0], Units) and alive[0].get_faction() == 'defender':
+            print('Defender Win!')
             return 'defender'
-        if len(alive) == 1 and isinstance(alive[0], Units) and alive[0].get_faction == 'attacker':
+        if len(alive) == 1 and isinstance(alive[0], Units) and alive[0].get_faction() == 'attacker':
+            print('Attacker Win!')
             return 'attacker'
         if len(alive) == 2:
             return None
     
+    def game_over(self):
+        if self.check_winner() == None:
+            return False
+        else:
+            return True
+    
+    def switch_turn(self):
+        self.player = self.player.next()
+
     def heuristic(self):
         def calculate_scores(self, player : str):
             V = T = F = P = AI =0
@@ -320,11 +345,83 @@ class Game:
         score = (3 * VP1 + 3 * TP1 + 3 * FP1 + 3 * PP1 + 9999 * AIP1) - (3 * VP2 + 3 * TP2 + 3 * FP2 + 3 * PP2 + 9999 * AIP2)
         return score
 
+def main():
+    game = Game()
+    over = False
+    while not game.game_over():
+        print(game.player.name)
+        game.clear()
+        game.show_board()
+        unit_pos = game.select_unit()
+        while not game.isfriendly(unit_pos):
+            print('Cannot Choose Enemy Unit')
+            unit_pos = game.select_unit()
+        action_choice = 0
+        while True:
+            print("\nPlease choose an action:")
+            print("1. Move")
+            print("2. Attack")
+            print("3. Repair")
+            print("4. Self-Destruct")
+            print("5. Select Another Unit\n")
+            action_choice = input("Enter the number of your choice from integer 1-4: ")
+            if action_choice  not in ['1', '2', '3', '4', '5']:
+                print("Invalid choice. Please select a valid action from integer 1-5.")
+                continue
+            if action_choice == '1':
+                move_list = game.valid_move(unit_pos)
+                if move_list == None:
+                    print('Unit Cannot Move')
+                    continue
+                else:
+                    destination = game.select_unit()
+                    if destination not in move_list:
+                        print('Invalid Operation')
+                        continue
+                    else:
+                        game.move(unit_pos, destination)
+                        break
+            if action_choice == '2':
+                attack_list = game.valid_attack(unit_pos)
+                if not attack_list:
+                    print('Unit Cannot Attack')
+                    print(attack_list)
+                    continue
+                else:
+                    target = game.select_unit()
+                    if target not in attack_list:
+                        print('Invalid Operation')
+                        continue
+                    else:
+                        game.attack(unit_pos, target)
+                        game.clear()
+                        break
+
+            if action_choice == '3':
+                repair_list = game.valid_repair(unit_pos)
+                if not repair_list:
+                    print('Unit Cannot Repair')
+                else:
+                    patient = game.select_unit
+                    if patient not in repair_list:
+                        print('Invalid Operation')
+                        continue
+                    else:
+                        game.repair(unit_pos, patient)
+                        break
+            
+            if action_choice == '4':
+                game.destruct(unit_pos)
+                game.clear()
+                break
+        game.switch_turn()
 
 
 
 
 
+if __name__ == "__main__":
+    main()
 
     
 
