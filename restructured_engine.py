@@ -482,10 +482,11 @@ def main():
     game = Game()
     over = False
     while not game.game_over():
+        game.show_board()
         if game.player.name == 'attacker':
             print(game.player.name)
             game.clear()
-            game.show_board()
+            # game.show_board()
             unit_pos = game.select_unit()
             while not game.isfriendly(unit_pos):
                 print('Cannot Choose Enemy Unit')
@@ -555,7 +556,6 @@ def main():
             print(ai_move)
             game.perform_action(ai_move)
             game.clear()
-            game.show_board()
             game.switch_turn()
 
 def test():
