@@ -389,7 +389,7 @@ class Game:
         VP2, TP2, FP2, PP2, AIP2 = calculate_scores('defender')
         score = (3 * VP1 + 3 * TP1 + 3 * FP1 + 3 * PP1 + 9999 * AIP1) - (3 * VP2 + 3 * TP2 + 3 * FP2 + 3 * PP2 + 9999 * AIP2)
         return score
-    
+
     def get_all_possible_actions(self, player:str):
         actions = []
         my_units_positions = self.get_pieces(player)
@@ -413,8 +413,8 @@ class Game:
                     action_repair = Action('repair', unit_pos, patient)
                     actions.append(action_repair)
             # destruct
-            action_destruct = Action('destruct', unit_pos, unit_pos)
-            actions.append(action_destruct)
+            """action_destruct = Action('destruct', unit_pos, unit_pos)
+            actions.append(action_destruct)"""
         return actions
 
     def perform_action(self, action:Action):
@@ -443,7 +443,7 @@ class Game:
             return new_game
         
     def minimax(self, depth, is_maximizing):
-        if depth == 0:
+        if depth == 0 or self.game_over():
             return self.heuristic()
         if is_maximizing:
             best_score = float('-inf')
@@ -456,7 +456,7 @@ class Game:
             best_score = float('inf')
             for action in self.get_all_possible_actions('defender'):
                 new_game = self.simulate_action(action)
-                score = new_game.minimax(depth-1, False)
+                score = new_game.minimax(depth-1, True)
                 best_score = min(score, best_score)
             return best_score
     
@@ -555,15 +555,13 @@ def main():
             print(ai_move)
             game.perform_action(ai_move)
             game.clear()
+            game.show_board()
+            game.switch_turn()
 
 def test():
     game = Game()
-    all_actions = game.get_all_possible_actions()
-    for action in all_actions:
-        if isinstance(action, Action):
-            print(action)
-    print(len(all_actions))
-    print(all_actions[1])
+    score = game.heuristic()
+    print(score)
 
 
 
