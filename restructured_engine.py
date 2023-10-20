@@ -1,4 +1,5 @@
 import sys
+import copy
 from enum import Enum
 
 class Player(Enum):
@@ -44,7 +45,26 @@ class Units:
 
     def myself(self):
         return f"{self.faction[0]}{self.unit_name[0]}{self.hp}"
+
+class Action:
+
+    def __init__(self, action_name : str, myself : tuple, target : tuple) -> None:
+        self.action_name = action_name
+        self.myself = myself
+        self.target = target
     
+    def get_action_name(self):
+        return self.action_name
+    
+    def get_myself(self):
+        return self.myself
+    
+    def get_target(self):
+        return self.target
+    
+    def __str__(self):
+        return f"{self.get_action_name()}: my unit --> {self.get_myself()}  target unit --> {self.get_target()}"
+
 class Game:
 
 
@@ -153,19 +173,18 @@ class Game:
                         return True
         return False
     
-    def get_pieces(self):
+    def get_pieces(self, player:str):
         ai_pieces = []
-        faction = self.player.name
         for i, row in enumerate(self.board):
             for j, unit in enumerate(row):
-                if isinstance(unit, Units) and unit.get_faction() == faction:
+                if isinstance(unit, Units) and unit.get_faction() == player:
                     ai_pieces.append((i, j))
         return ai_pieces
 
     def get_valid_adjacents(self, tup):
         valid_adjacents = []
         directions = [(tup[0], tup[1] + 1), (tup[0], tup[1] - 1), (tup[0] + 1, tup[1]), (tup[0] - 1, tup[1])]
-        print(directions)
+        #print(directions)
         for x, y in directions:
             if 0 <= x < 5 and 0 <= y < 5:
                 valid_adjacents.append((x,y))
@@ -261,12 +280,38 @@ class Game:
         repair_table = {
             'AI': {
                 'Virus': 1,
-                'Tech': 1
+                'Tech': 1,
+                'Program': 0,
+                'Firewall': 0,
+                'AI': 0
             },
             'Tech': {
                 'AI': 3,
                 'Firewall': 3,
-                'Program': 3
+                'Program': 3,
+                'Tech': 0,
+                'Virus': 0
+            },
+            'Virus':{
+                'AI': 0,
+                'Firewall': 0,
+                'Program': 0,
+                'Tech': 0,
+                'Virus': 0
+            },
+            'Firewall':{
+                'AI': 0,
+                'Firewall': 0,
+                'Program': 0,
+                'Tech': 0,
+                'Virus': 0
+            },
+            'Program':{
+                'AI': 0,
+                'Firewall': 0,
+                'Program': 0,
+                'Tech': 0,
+                'Virus': 0
             }
         }
         doctor = self.get_unit(s)
@@ -324,7 +369,7 @@ class Game:
         self.player = self.player.next()
 
     def heuristic(self):
-        def calculate_scores(self, player : str):
+        def calculate_scores(player):
             V = T = F = P = AI =0
             for row in self.board:
                 for unit in row:
@@ -340,88 +385,193 @@ class Game:
                         elif unit.get_unit_name() == 'AI':
                             AI += 1
             return V, T, F, P, AI
-        VP1, TP1, FP1, PP1, AIP1 = self.calculate_player_scores('attacker')
-        VP2, TP2, FP2, PP2, AIP2 = self.calculate_player_scores('defender')
+        VP1, TP1, FP1, PP1, AIP1 = calculate_scores('attacker')
+        VP2, TP2, FP2, PP2, AIP2 = calculate_scores('defender')
         score = (3 * VP1 + 3 * TP1 + 3 * FP1 + 3 * PP1 + 9999 * AIP1) - (3 * VP2 + 3 * TP2 + 3 * FP2 + 3 * PP2 + 9999 * AIP2)
         return score
+    
+    def get_all_possible_actions(self, player:str):
+        actions = []
+        my_units_positions = self.get_pieces(player)
+        for unit_pos in my_units_positions:
+            # move
+            valid_moves = self.valid_move(unit_pos)
+            if valid_moves:
+                for move in valid_moves:
+                    action_move = Action('move', unit_pos, move)
+                    actions.append(action_move)
+            # attack
+            valid_attacks = self.valid_attack(unit_pos)
+            if valid_attacks:
+                for target in valid_attacks:
+                    action_attack = Action('attack', unit_pos, target)
+                    actions.append(action_attack)
+            # repair
+            valid_repairs = self.valid_repair(unit_pos)
+            if valid_repairs:
+                for patient in valid_repairs:
+                    action_repair = Action('repair', unit_pos, patient)
+                    actions.append(action_repair)
+            # destruct
+            action_destruct = Action('destruct', unit_pos, unit_pos)
+            actions.append(action_destruct)
+        return actions
+
+    def perform_action(self, action:Action):
+        if action.get_action_name() == 'move':
+            self.move(action.get_myself(), action.get_target())
+        if action.get_action_name() == 'attack':
+            self.attack(action.get_myself(), action.get_target())
+        if action.get_action_name() == 'repair':
+            self.repair(action.get_myself(), action.get_target())
+        if action.get_action_name() == 'destruct':
+            self.destruct(action.get_myself())
+
+    def simulate_action(self, action : Action):
+        new_game = copy.deepcopy(self)
+        if action.get_action_name() == 'move':
+            new_game.move(action.get_myself(), action.get_target())
+            return new_game
+        if action.get_action_name() == 'attack':
+            new_game.attack(action.get_myself(), action.get_target())
+            return new_game
+        if action.get_action_name() == 'repair':
+            new_game.repair(action.get_myself(), action.get_target())
+            return new_game
+        if action.get_action_name() == 'destruct':
+            new_game.destruct(action.get_myself())
+            return new_game
+        
+    def minimax(self, depth, is_maximizing):
+        if depth == 0:
+            return self.heuristic()
+        if is_maximizing:
+            best_score = float('-inf')
+            for action in self.get_all_possible_actions('attacker'):
+                new_game = self.simulate_action(action)
+                score = new_game.minimax(depth-1, False)
+                best_score = max(score, best_score)
+            return best_score
+        else:
+            best_score = float('inf')
+            for action in self.get_all_possible_actions('defender'):
+                new_game = self.simulate_action(action)
+                score = new_game.minimax(depth-1, False)
+                best_score = min(score, best_score)
+            return best_score
+    
+    def find_best_action(self, player:str):
+        best_score = float('-inf') if player == 'attacker' else float('inf')
+        best_move = None
+        for action in self.get_all_possible_actions(player):
+            new_game = self.simulate_action(action)
+            score = new_game.minimax(3, False)
+            if (player == 'attacker' and score > best_score) or (player == 'defender' and score < best_score):
+                best_score = score
+                best_move = action
+        return best_move
+
+
+    def clone(self):
+        new = copy.copy(self)
+        new.board = copy.deepcopy(self.board)
+        return new
+
 
 def main():
     game = Game()
     over = False
     while not game.game_over():
-        print(game.player.name)
-        game.clear()
-        game.show_board()
-        unit_pos = game.select_unit()
-        while not game.isfriendly(unit_pos):
-            print('Cannot Choose Enemy Unit')
+        if game.player.name == 'attacker':
+            print(game.player.name)
+            game.clear()
+            game.show_board()
             unit_pos = game.select_unit()
-        action_choice = 0
-        while True:
-            print("\nPlease choose an action:")
-            print("1. Move")
-            print("2. Attack")
-            print("3. Repair")
-            print("4. Self-Destruct")
-            print("5. Select Another Unit\n")
-            action_choice = input("Enter the number of your choice from integer 1-4: ")
-            if action_choice  not in ['1', '2', '3', '4', '5']:
-                print("Invalid choice. Please select a valid action from integer 1-5.")
-                continue
-            if action_choice == '1':
-                move_list = game.valid_move(unit_pos)
-                if move_list == None:
-                    print('Unit Cannot Move')
+            while not game.isfriendly(unit_pos):
+                print('Cannot Choose Enemy Unit')
+                unit_pos = game.select_unit()
+            action_choice = 0
+            while True:
+                print("\nPlease choose an action:")
+                print("1. Move")
+                print("2. Attack")
+                print("3. Repair")
+                print("4. Self-Destruct")
+                print("5. Select Another Unit\n")
+                action_choice = input("Enter the number of your choice from integer 1-4: ")
+                if action_choice  not in ['1', '2', '3', '4', '5']:
+                    print("Invalid choice. Please select a valid action from integer 1-5.")
                     continue
-                else:
-                    destination = game.select_unit()
-                    if destination not in move_list:
-                        print('Invalid Operation')
+                if action_choice == '1':
+                    move_list = game.valid_move(unit_pos)
+                    if move_list == None:
+                        print('Unit Cannot Move')
                         continue
                     else:
-                        game.move(unit_pos, destination)
-                        break
-            if action_choice == '2':
-                attack_list = game.valid_attack(unit_pos)
-                if not attack_list:
-                    print('Unit Cannot Attack')
-                    print(attack_list)
-                    continue
-                else:
-                    target = game.select_unit()
-                    if target not in attack_list:
-                        print('Invalid Operation')
+                        destination = game.select_unit()
+                        if destination not in move_list:
+                            print('Invalid Operation')
+                            continue
+                        else:
+                            game.move(unit_pos, destination)
+                            break
+                if action_choice == '2':
+                    attack_list = game.valid_attack(unit_pos)
+                    if not attack_list:
+                        print('Unit Cannot Attack')
+                        print(attack_list)
                         continue
                     else:
-                        game.attack(unit_pos, target)
-                        game.clear()
-                        break
+                        target = game.select_unit()
+                        if target not in attack_list:
+                            print('Invalid Operation')
+                            continue
+                        else:
+                            game.attack(unit_pos, target)
+                            game.clear()
+                            break
 
-            if action_choice == '3':
-                repair_list = game.valid_repair(unit_pos)
-                if not repair_list:
-                    print('Unit Cannot Repair')
-                else:
-                    patient = game.select_unit
-                    if patient not in repair_list:
-                        print('Invalid Operation')
-                        continue
+                if action_choice == '3':
+                    repair_list = game.valid_repair(unit_pos)
+                    if not repair_list:
+                        print('Unit Cannot Repair')
                     else:
-                        game.repair(unit_pos, patient)
-                        break
-            
-            if action_choice == '4':
-                game.destruct(unit_pos)
-                game.clear()
-                break
-        game.switch_turn()
+                        patient = game.select_unit
+                        if patient not in repair_list:
+                            print('Invalid Operation')
+                            continue
+                        else:
+                            game.repair(unit_pos, patient)
+                            break
+                
+                if action_choice == '4':
+                    game.destruct(unit_pos)
+                    game.clear()
+                    break
+            game.switch_turn()
+        else:
+            print('AI turn')
+            ai_move = game.find_best_action('defender')
+            print(ai_move)
+            game.perform_action(ai_move)
+            game.clear()
 
+def test():
+    game = Game()
+    all_actions = game.get_all_possible_actions()
+    for action in all_actions:
+        if isinstance(action, Action):
+            print(action)
+    print(len(all_actions))
+    print(all_actions[1])
 
 
 
 
 if __name__ == "__main__":
     main()
+    #test()
+
 
     
 
