@@ -390,6 +390,35 @@ class Game:
         score = (3 * VP1 + 3 * TP1 + 3 * FP1 + 3 * PP1 + 9999 * AIP1) - (3 * VP2 + 3 * TP2 + 3 * FP2 + 3 * PP2 + 9999 * AIP2)
         return score
 
+    def evaluate_game_state(self, player:str):
+    # Constants for tuning the evaluation function's behavior.
+        AI_UNIT_WEIGHT = 1.0
+        AI_HEALTH_WEIGHT = 0.5  # Health is less important than the mere existence of a unit.
+        ENEMY_HEALTH_WEIGHT = -0.5  # Enemy health negatively affects the score.
+        # Additional factors can be included such as game control, positions, etc.
+
+        # Retrieve the current state of the board.
+        board = self.get_board()
+
+        # Initialize scores.
+        ai_score = 0.0
+
+        for row in board:
+            for unit in row:
+                if unit:  # Ensure there is a unit to evaluate.
+                    # Check if the unit belongs to the AI.
+                    if unit.get_faction() == player:  # Assuming the AI is the attacker.
+                        ai_score += AI_UNIT_WEIGHT  # AI has a unit here.
+                        ai_score += AI_HEALTH_WEIGHT * unit.get_hp()  # Add health score.
+                    else:
+                        # This is an enemy unit; its health is 'bad' for the AI.
+                        ai_score += ENEMY_HEALTH_WEIGHT * unit.get_hp()
+
+        # The score can be normalized or modified further based on additional game state context.
+        
+        return ai_score
+
+
     def get_all_possible_actions(self, player:str):
         actions = []
         my_units_positions = self.get_pieces(player)
@@ -460,6 +489,35 @@ class Game:
                 best_score = min(score, best_score)
             return best_score
     
+    def minimax_by_chatgpt(self, depth, is_maximizing):
+        if depth == 0 or self.game_over():
+            return (self.evaluate_game_state(self.player.name), None)
+        
+        best_move = None
+
+        if is_maximizing:
+        # The maximizing player is the human player, so we try to find the move with the highest evaluation score.
+            best_score = float('-inf')  # The worst score possible.
+            for move in self.get_all_possible_actions(self.player.name):
+                game_copy = self.clone()  # Create a deep copy of the game to simulate the move without affecting the actual game state.
+                game_copy.simulate_action(move)  # Simulate the move.
+                current_score = game_copy.minimax_by_chatgpt(depth - 1, False)[0]  # Recur with decreased depth.
+                if current_score > best_score:
+                    best_score = current_score
+                    best_move = move  # Keep track of the move that led to this score.
+        else:
+            # The minimizing player is the AI, so we try to find the move with the lowest evaluation score.
+            best_score = float('inf')  # The best score possible.
+            for move in self.get_all_possible_actions(self.player.name):
+                game_copy = self.clone()
+                game_copy.simulate_action(move)
+                current_score = game_copy.minimax_by_chatgpt( depth - 1, True)[0]
+                if current_score < best_score:
+                    best_score = current_score
+                    best_move = move
+
+        return (best_score, best_move)
+
     def find_best_action(self, player:str):
         best_score = float('-inf') if player == 'attacker' else float('inf')
         best_move = None
@@ -473,7 +531,7 @@ class Game:
 
 
     def clone(self):
-        new = copy.copy(self)
+        new = copy.deepcopy(self)
         new.board = copy.deepcopy(self.board)
         return new
 
@@ -552,9 +610,10 @@ def main():
             game.switch_turn()
         else:
             print('AI turn')
-            ai_move = game.find_best_action('defender')
+            #ai_move = game.find_best_action('defender')
+            ai_move= game.minimax_by_chatgpt(5, False)
             print(ai_move)
-            game.perform_action(ai_move)
+            game.perform_action(ai_move[1])
             game.clear()
             game.switch_turn()
 
@@ -563,12 +622,32 @@ def test():
     score = game.heuristic()
     print(score)
 
+def ai_vs_ai():
+    game = Game()
+    while not game.game_over():
+        game.show_board()
+        if game.player.name == 'attacker':
+            print(game.player.name)
+            game.clear()
+            attacker_move = game.minimax_by_chatgpt(4, True)
+            game.perform_action(attacker_move[1])
+            game.clear()
+            game.switch_turn()
+        else:
+            print(game.player.name)
+            game.clear()
+            defender_move = game.minimax_by_chatgpt(4, False)
+            game.perform_action(defender_move[1])
+            game.clear()
+            game.switch_turn()
+
 
 
 
 if __name__ == "__main__":
-    main()
+    #main()
     #test()
+    ai_vs_ai()
 
 
     
