@@ -1,14 +1,13 @@
 import sys
 import copy
+import random
 from enum import Enum
 
 class Player(Enum):
-    """The 2 players."""
     attacker = 0
     defender = 1
 
     def next(self):
-        """The next (other) player."""
         if self is Player.attacker:
             return Player.defender
         else:
@@ -518,6 +517,42 @@ class Game:
 
         return (best_score, best_move)
 
+    def minimax_by_chatgpt_list(self, depth, is_maximizing):
+        if depth == 0 or self.game_over():
+            return (self.evaluate_game_state(self.player.name), None)
+
+        best_moves = []  # We will store all equally good moves here.
+
+        if is_maximizing:
+            best_score = float('-inf')
+            for move in self.get_all_possible_actions(self.player.name):
+                game_copy = self.clone()
+                game_copy.simulate_action(move)
+                current_score, _ = game_copy.minimax_by_chatgpt(depth - 1, False)
+
+                if current_score > best_score:
+                    best_score = current_score
+                    best_moves = [move]  # Reset the list to only this best move.
+                elif current_score == best_score:
+                    best_moves.append(move)  # This move is as good as the current best, add to the list.
+        else:
+            best_score = float('inf')
+            for move in self.get_all_possible_actions(self.player.name):
+                game_copy = self.clone()
+                game_copy.simulate_action(move)
+                current_score, _ = game_copy.minimax_by_chatgpt(depth - 1, True)
+
+                if current_score < best_score:
+                    best_score = current_score
+                    best_moves = [move]  # Reset the list to only this best move.
+                elif current_score == best_score:
+                    best_moves.append(move)  # This move is as good as the current best, add to the list.
+
+        # Randomly select one of the best moves.
+        best_move = random.choice(best_moves) if best_moves else None
+
+        return (best_score, best_move)
+
     def find_best_action(self, player:str):
         best_score = float('-inf') if player == 'attacker' else float('inf')
         best_move = None
@@ -528,7 +563,6 @@ class Game:
                 best_score = score
                 best_move = action
         return best_move
-
 
     def clone(self):
         new = copy.deepcopy(self)
@@ -629,14 +663,14 @@ def ai_vs_ai():
         if game.player.name == 'attacker':
             print(game.player.name)
             game.clear()
-            attacker_move = game.minimax_by_chatgpt(4, True)
+            attacker_move = game.minimax_by_chatgpt_list(4, True)
             game.perform_action(attacker_move[1])
             game.clear()
             game.switch_turn()
         else:
             print(game.player.name)
             game.clear()
-            defender_move = game.minimax_by_chatgpt(4, False)
+            defender_move = game.minimax_by_chatgpt_list(4, False)
             game.perform_action(defender_move[1])
             game.clear()
             game.switch_turn()
