@@ -2,6 +2,7 @@ import sys
 import copy
 import random
 from enum import Enum
+import time, datetime
 
 class Player(Enum):
     attacker = 0
@@ -63,6 +64,7 @@ class Action:
     
     def __str__(self):
         return f"{self.get_action_name()}: my unit --> {self.get_myself()}  target unit --> {self.get_target()}"
+        
 
 class Game:
 
@@ -117,6 +119,7 @@ class Game:
                     message += ' *  '
             print()
             message += '\n'
+        return message
         # trace_records(message)
 
     def get_position(self, unit : Units):
@@ -389,34 +392,49 @@ class Game:
         score = (3 * VP1 + 3 * TP1 + 3 * FP1 + 3 * PP1 + 9999 * AIP1) - (3 * VP2 + 3 * TP2 + 3 * FP2 + 3 * PP2 + 9999 * AIP2)
         return score
 
-    def evaluate_game_state(self, player:str):
-    # Constants for tuning the evaluation function's behavior.
-        AI_UNIT_WEIGHT = 1.0
-        AI_HEALTH_WEIGHT = 0.5  # Health is less important than the mere existence of a unit.
-        ENEMY_HEALTH_WEIGHT = -0.5  # Enemy health negatively affects the score.
-        # Additional factors can be included such as game control, positions, etc.
-
-        # Retrieve the current state of the board.
+    def evaluate_function_1(self, player:str):
+        unit_weight = 1.0
+        my_health_weight = 0.5
+        enemy_health_weight = -0.5
         board = self.get_board()
+        score = 0
+        for row in board:
+            for unit in row:
+                if unit:
+                    if isinstance(unit, Units) and unit.get_faction() == player:
+                        score += unit_weight
+                        score += my_health_weight * unit.get_hp()
+                    else:
+                        score += enemy_health_weight * unit.get_hp()
+        return score
+    
+    def evaluate_function_2(self, player:str):
+        unit_weights = {
+            'Program': 1.0,
+            'Firewall': 2.0,
+            'Virus': 2.5,
+            'AI': 3.0,
+            'Tech': 1.0
+        }
+    
+        unit_weight = 1.0
+        my_health_weight = 0.5  
+        enemy_health_weight = -0.5  
 
-        # Initialize scores.
-        ai_score = 0.0
+        board = self.get_board()
+        score = 0
 
         for row in board:
             for unit in row:
-                if unit:  # Ensure there is a unit to evaluate.
-                    # Check if the unit belongs to the AI.
-                    if unit.get_faction() == player:  # Assuming the AI is the attacker.
-                        ai_score += AI_UNIT_WEIGHT  # AI has a unit here.
-                        ai_score += AI_HEALTH_WEIGHT * unit.get_hp()  # Add health score.
+                if isinstance(unit, Units):
+                    unit_type = unit.get_unit_name()
+                    if unit.get_faction() == player:
+                        score += unit_weight * unit_weights[unit_type]
+                        score += my_health_weight * unit.get_hp()
                     else:
-                        # This is an enemy unit; its health is 'bad' for the AI.
-                        ai_score += ENEMY_HEALTH_WEIGHT * unit.get_hp()
-
-        # The score can be normalized or modified further based on additional game state context.
+                        score += enemy_health_weight * unit.get_hp()
         
-        return ai_score
-
+        return score
 
     def get_all_possible_actions(self, player:str):
         actions = []
@@ -447,13 +465,20 @@ class Game:
 
     def perform_action(self, action:Action):
         if action.get_action_name() == 'move':
+            message = f"{self.get_unit(action.get_myself()).myself()} moved to position {action.get_target()}"
             self.move(action.get_myself(), action.get_target())
+            return message
         if action.get_action_name() == 'attack':
             self.attack(action.get_myself(), action.get_target())
+            return f"{self.get_unit(action.get_myself()).myself()} attacked {self.get_unit(action.get_target()).myself()}"
         if action.get_action_name() == 'repair':
             self.repair(action.get_myself(), action.get_target())
+            return f"{self.get_unit(action.get_myself()).myself()} repaired {self.get_unit(action.get_target()).myself()}"
         if action.get_action_name() == 'destruct':
             self.destruct(action.get_myself())
+            return f"{self.get_unit(action.get_myself()).myself()} destructed itself"
+            
+        
 
     def simulate_action(self, action : Action):
         new_game = copy.deepcopy(self)
@@ -469,100 +494,123 @@ class Game:
         if action.get_action_name() == 'destruct':
             new_game.destruct(action.get_myself())
             return new_game
-        
+
     def minimax(self, depth, is_maximizing):
         if depth == 0 or self.game_over():
-            return self.heuristic()
-        if is_maximizing:
-            best_score = float('-inf')
-            for action in self.get_all_possible_actions('attacker'):
-                new_game = self.simulate_action(action)
-                score = new_game.minimax(depth-1, False)
-                best_score = max(score, best_score)
-            return best_score
-        else:
-            best_score = float('inf')
-            for action in self.get_all_possible_actions('defender'):
-                new_game = self.simulate_action(action)
-                score = new_game.minimax(depth-1, True)
-                best_score = min(score, best_score)
-            return best_score
-    
-    def minimax_by_chatgpt(self, depth, is_maximizing):
-        if depth == 0 or self.game_over():
-            return (self.evaluate_game_state(self.player.name), None)
-        
-        best_move = None
-
-        if is_maximizing:
-        # The maximizing player is the human player, so we try to find the move with the highest evaluation score.
-            best_score = float('-inf')  # The worst score possible.
-            for move in self.get_all_possible_actions(self.player.name):
-                game_copy = self.clone()  # Create a deep copy of the game to simulate the move without affecting the actual game state.
-                game_copy.simulate_action(move)  # Simulate the move.
-                current_score = game_copy.minimax_by_chatgpt(depth - 1, False)[0]  # Recur with decreased depth.
-                if current_score > best_score:
-                    best_score = current_score
-                    best_move = move  # Keep track of the move that led to this score.
-        else:
-            # The minimizing player is the AI, so we try to find the move with the lowest evaluation score.
-            best_score = float('inf')  # The best score possible.
-            for move in self.get_all_possible_actions(self.player.name):
-                game_copy = self.clone()
-                game_copy.simulate_action(move)
-                current_score = game_copy.minimax_by_chatgpt( depth - 1, True)[0]
-                if current_score < best_score:
-                    best_score = current_score
-                    best_move = move
-
-        return (best_score, best_move)
-
-    def minimax_by_chatgpt_list(self, depth, is_maximizing):
-        if depth == 0 or self.game_over():
             return (self.evaluate_game_state(self.player.name), None)
 
-        best_moves = []  # We will store all equally good moves here.
+        best_moves = []
 
         if is_maximizing:
             best_score = float('-inf')
             for move in self.get_all_possible_actions(self.player.name):
                 game_copy = self.clone()
                 game_copy.simulate_action(move)
-                current_score, _ = game_copy.minimax_by_chatgpt(depth - 1, False)
-
+                current_score, _ = game_copy.minimax(depth - 1, False)
                 if current_score > best_score:
                     best_score = current_score
-                    best_moves = [move]  # Reset the list to only this best move.
+                    best_moves = [move]
                 elif current_score == best_score:
-                    best_moves.append(move)  # This move is as good as the current best, add to the list.
+                    best_moves.append(move)
         else:
             best_score = float('inf')
             for move in self.get_all_possible_actions(self.player.name):
                 game_copy = self.clone()
                 game_copy.simulate_action(move)
-                current_score, _ = game_copy.minimax_by_chatgpt(depth - 1, True)
+                current_score, _ = game_copy.minimax(depth - 1, True)
 
                 if current_score < best_score:
                     best_score = current_score
-                    best_moves = [move]  # Reset the list to only this best move.
+                    best_moves = [move]
                 elif current_score == best_score:
-                    best_moves.append(move)  # This move is as good as the current best, add to the list.
-
-        # Randomly select one of the best moves.
+                    best_moves.append(move)
         best_move = random.choice(best_moves) if best_moves else None
 
         return (best_score, best_move)
+    def minimax_time(self, depth, is_maximizing, start_time, time_limit):
+        if time.time() - start_time > time_limit:
+            return (self.heuristic(), None)
 
-    def find_best_action(self, player:str):
-        best_score = float('-inf') if player == 'attacker' else float('inf')
-        best_move = None
-        for action in self.get_all_possible_actions(player):
+        if depth == 0 or self.game_over():
+            return (self.heuristic(), None)
+
+        best_moves = []
+
+        if is_maximizing:
+            best_score = float('-inf')
+            for move in self.get_all_possible_actions(self.player.name):
+                game_copy = self.clone()
+                game_copy.simulate_action(move)
+                current_score, _ = game_copy.minimax_time(depth - 1, False, start_time, time_limit)
+
+                
+                if time.time() - start_time > time_limit:
+                    break
+
+                if current_score > best_score:
+                    best_score = current_score
+                    best_moves = [move]
+                elif current_score == best_score:
+                    best_moves.append(move)
+        else:
+            best_score = float('inf')
+            for move in self.get_all_possible_actions(self.player.name):
+                game_copy = self.clone()
+                game_copy.simulate_action(move)
+                current_score, _ = game_copy.minimax_time(depth - 1, True, start_time, time_limit)
+
+                # check the time constraint after the recursive call
+                if time.time() - start_time > time_limit:
+                    break
+
+                if current_score < best_score:
+                    best_score = current_score
+                    best_moves = [move]
+                elif current_score == best_score:
+                    best_moves.append(move)
+
+        best_move = random.choice(best_moves) if best_moves else None
+        return (best_score, best_move)
+
+    def alpha_beta_search(self, depth, alpha, beta, maximizing):
+        if depth == 0 or self.game_over():
+            return (self.heuristic(), None)
+
+        best_moves = []
+        best_score = float('-inf') if maximizing else float('inf')
+
+        for action in self.get_all_possible_actions(self.player.name):
             new_game = self.simulate_action(action)
-            score = new_game.minimax(3, False)
-            if (player == 'attacker' and score > best_score) or (player == 'defender' and score < best_score):
+            score, _ = new_game.alpha_beta_search(depth - 1, alpha, beta, not maximizing)
+
+            
+            if (maximizing and score > best_score) or (not maximizing and score < best_score):
                 best_score = score
-                best_move = action
-        return best_move
+                best_moves = [action]
+            elif score == best_score:
+                best_moves.append(action)
+
+            if maximizing:
+                alpha = max(alpha, score)
+            else:
+                beta = min(beta, score)
+
+            if alpha >= beta:
+                break  # prune
+
+        best_move = random.choice(best_moves) if best_moves else None
+        return (best_score, best_move)
+
+    
+    def find_best_action_alpha_beta(self, player, depth:int):
+        alpha = float('-inf')
+        beta = float('inf')
+        maximizing = player == 'attacker'
+
+        best_score, best_move = self.alpha_beta_search(depth, alpha, beta, maximizing)
+
+        return (best_score, best_move)
+
 
     def clone(self):
         new = copy.deepcopy(self)
@@ -570,15 +618,27 @@ class Game:
         return new
 
 
-def main():
+def human_vs_ai(turn_limit:int, time_limit:int, is_minimax:bool):
+    def trace_records(message):
+        try:
+            with open(f'gameTrace-{is_minimax}-{time_limit}-{turn_limit}.txt', 'a') as file:  # 'a' mode appends to the file
+                file.write(message + '\n')
+        except Exception as e:
+            print(f"Error to Create/Open File")
     game = Game()
-    over = False
+    map = game.show_board()
+    message = ''
+    trace_records(map)
+    turn = 0
+    print('Game Start!')
+    trace_records('Game Start \n')
     while not game.game_over():
-        game.show_board()
+        print(f"Turn: {turn+1}")
+        trace_records(f"Turn: {turn+1}")
         if game.player.name == 'attacker':
             print(game.player.name)
+            trace_records(game.player.name)
             game.clear()
-            # game.show_board()
             unit_pos = game.select_unit()
             while not game.isfriendly(unit_pos):
                 print('Cannot Choose Enemy Unit')
@@ -607,6 +667,8 @@ def main():
                             continue
                         else:
                             game.move(unit_pos, destination)
+                            message = f"Moved from {unit_pos} to {destination}"
+                            trace_records(message)
                             break
                 if action_choice == '2':
                     attack_list = game.valid_attack(unit_pos)
@@ -621,6 +683,8 @@ def main():
                             continue
                         else:
                             game.attack(unit_pos, target)
+                            message = f"{unit_pos} attacked to {target}"
+                            trace_records(message)
                             game.clear()
                             break
 
@@ -635,56 +699,157 @@ def main():
                             continue
                         else:
                             game.repair(unit_pos, patient)
+                            message = f"{unit_pos} attacked to {patient}"
+                            trace_records(message)
                             break
                 
                 if action_choice == '4':
                     game.destruct(unit_pos)
+                    message = f"{unit_pos} destructed itself"
+                    trace_records(message)
                     game.clear()
                     break
+            game.clear()
+            map1 = game.show_board()
+            trace_records(map1)
             game.switch_turn()
         else:
-            print('AI turn')
-            #ai_move = game.find_best_action('defender')
-            ai_move= game.minimax_by_chatgpt(5, False)
-            print(ai_move)
-            game.perform_action(ai_move[1])
+            start = time.time()
+            print(game.player.name)
+            trace_records(game.player.name)
+            print(f"Turn: {turn+1}")
+            trace_records(f"Turn: {turn+1}")
+            if is_minimax:
+                defender_move = game.minimax_time(4, False, start, time_limit)
+            else:
+                defender_move = game.find_best_action_alpha_beta('defender', 4)
+            end = time.time()
+            elapsed = end - start
+            elapsed_seconds_float = float(elapsed)
+            print(f'Search Time: {elapsed_seconds_float:.2f} seconds')
+            trace_records(f'Search Time: {elapsed_seconds_float:.2f} seconds')
+            print(f'defender_move Score: {defender_move[0]}')
+            trace_records(f'defender_move Score: {defender_move[0]}')
+            message = game.perform_action(defender_move[1])
+            trace_records(message)
             game.clear()
+            map2 = game.show_board()
+            trace_records(map2)
+            turn += 1
             game.switch_turn()
+        if turn == turn_limit:
+            print('Maximum Turns Reached! Game Tied')
+            break
+        turn += 1
+    if game.game_over():
+        print(f"In {turn} Moves")
 
-def test():
-    game = Game()
-    score = game.heuristic()
-    print(score)
 
-def ai_vs_ai():
+def ai_vs_ai(turn_limit:int, time_limit:int, is_minimax:bool):
+    def trace_records(message):
+        try:
+            with open(f'gameTrace-{is_minimax}-{time_limit}-{turn_limit}.txt', 'a') as file:  # 'a' mode appends to the file
+                file.write(message + '\n')
+        except Exception as e:
+            print(f"Error to Create/Open File")
     game = Game()
+    turn = 0
+    map = game.show_board()
+    trace_records(map)
+    print('GAME Start')
+    trace_records('Game Start')
     while not game.game_over():
-        game.show_board()
         if game.player.name == 'attacker':
+            start = time.time()
+            print(f"Turn: {turn+1}")
+            trace_records(f"Turn: {turn+1}")
             print(game.player.name)
+            trace_records(game.player.name)
+            
+            if is_minimax:
+                attacker_move = game.minimax_time(4, True, start, time_limit)
+            else:
+                attacker_move = game.find_best_action_alpha_beta('attacker', 4)
+            end = time.time()
+            elapsed = end - start
+            elapsed_seconds_float = float(elapsed)
+            print(f'Search Time: {elapsed_seconds_float:.2f} seconds')
+            trace_records(f'Search Time: {elapsed_seconds_float:.2f} seconds')
+            print(f'Heuristic Score: {attacker_move[0]}')
+            trace_records(f'Heuristic Score: {attacker_move[0]}')
+            msg = game.perform_action(attacker_move[1])
+            trace_records(msg)
             game.clear()
-            attacker_move = game.minimax_by_chatgpt_list(4, True)
-            game.perform_action(attacker_move[1])
-            game.clear()
+            map1 = game.show_board()
+            trace_records(map1)
+            turn += 1
             game.switch_turn()
         else:
+            start = time.time()
             print(game.player.name)
+            trace_records(game.player.name)
+            print(f"Turn: {turn+1}")
+            trace_records(f"Turn: {turn+1}")
+            if is_minimax:
+                defender_move = game.minimax_time(4, False, start, time_limit)
+            else:
+                defender_move = game.find_best_action_alpha_beta('defender', 4)
+            end = time.time()
+            elapsed = end - start
+            elapsed_seconds_float = float(elapsed)
+            print(f'Search Time: {elapsed_seconds_float:.2f} seconds')
+            trace_records(f'Search Time: {elapsed_seconds_float:.2f} seconds')
+            print(f'Heuristic Score: {defender_move[0]}')
+            trace_records(f'Heuristic Score: {defender_move[0]}')
+            msg2 = game.perform_action(defender_move[1])
+            trace_records(msg2)
             game.clear()
-            defender_move = game.minimax_by_chatgpt_list(4, False)
-            game.perform_action(defender_move[1])
-            game.clear()
+            map2 = game.show_board()
+            trace_records(map2)
+            turn += 1
             game.switch_turn()
+        if turn == turn_limit:
+            print('Maximum Turns Reached! Game Tied')
+            break
+    winner = game.check_winner()
+    if winner != None:
+        trace_records(f"{winner} won the game in {turn} turns")
 
-
-
+def play():
+    print('<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< WAR GAME >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>')
+    print('Choose Game Mode to Start Playing\n')
+    print('2: AI vs. Human')
+    print('3: AI vs. AI\n')
+    mode = input('Enter The Mode Number: ')
+    if mode not in [1, 2, 3]:
+        mode ==  3
+    ai_mode = input('Turn on Minimax? (Enter Y to turn on Minimax and close alpha/beta)')
+    is_minimax = True
+    if ai_mode == 'Y':
+        is_minimax = True
+    else:
+        is_minimax = False
+    time_limit = input('Enter The Time Limit for Searching in Seconds: ')
+    turn_limit = input('Enter The Max Turn Limit: ')
+    if mode == '2' and is_minimax == False:
+        human_vs_ai(int(turn_limit), int(time_limit), is_minimax)
+    if mode == '2' and is_minimax:
+        human_vs_ai(int(turn_limit), int(time_limit), is_minimax)
+    if mode == '3' and is_minimax == False:
+        ai_vs_ai(int(turn_limit), int(time_limit), is_minimax)
+    if mode == '3' and is_minimax:
+        ai_vs_ai(int(turn_limit), int(time_limit), is_minimax)
 
 if __name__ == "__main__":
-    #main()
-    #test()
-    ai_vs_ai()
+    play()
 
 
     
+    
+    
+    
+
+
 
 
     
